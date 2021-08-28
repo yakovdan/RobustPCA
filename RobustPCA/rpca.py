@@ -67,7 +67,7 @@ class RobustPCA:
 
     """
 
-    def __init__(self, lamb=None, mu=None, max_rank=None, tol=1e-6, max_iter=100, use_fbpca=False, fbpca_rank_ratio=0.2):
+    def __init__(self, lamb=None, mu=None, max_rank=None, tol=1e-6, max_iter=100, use_fbpca=False, fbpca_rank_ratio=0.2, verbose=False):
         self.lamb = lamb
         self.mu = mu
         self.max_rank = max_rank
@@ -77,6 +77,7 @@ class RobustPCA:
         self.fbpca_rank_ratio = fbpca_rank_ratio
         self.converged = None
         self.error = []
+        self.verbose = verbose
 
     def s_tau(self, X, tau):
         """Shrinkage operator
@@ -180,7 +181,8 @@ class RobustPCA:
                 break
 
             Y = Y + self.mu*residuals
-
+            if self.verbose:
+                print("Finished iteration {} out of {}".format(i,self.max_iter))
         # Check if the fit is converged
         if residuals_sum > self.tol:
             print('Not converged!')
