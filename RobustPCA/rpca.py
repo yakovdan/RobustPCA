@@ -98,7 +98,6 @@ class RobustPCA:
 
         return np.sign(X)*np.maximum(np.abs(X)-tau,0)
 
-
     def d_tau(self, X):
         """Singular value thresholding operator
             Dτ (X) = USτ(Σ)V∗, where X = UΣV∗
@@ -135,8 +134,6 @@ class RobustPCA:
         # reconstruct thresholded 2D array
         return  np.dot(u[:, 0:rank] * s, vh[0:rank,:]), rank
 
-
-
     def fit(self, M):
         """Robust PCA fit
 
@@ -155,7 +152,7 @@ class RobustPCA:
         """
 
         size = M.shape
-
+        self.error = []
         # initialize S and Y (Lagrange multiplier)
         S = np.zeros(size)
         Y = np.zeros(size)
@@ -194,6 +191,67 @@ class RobustPCA:
 
         self.L, self.S, self.rank = L, S, rank
 
+    def fit_warmstart(self, M, initial_L):
+        """Robust PCA fit
+
+        Parameters
+        ----------
+        M : 2D array
+            2D array for docomposing
+        initial_L : initial value for low rank matrix
+
+        Returns
+        -------
+        L : 2D array
+            Lower rank dense 2D matrix
+
+        S : 2D array
+            Sparse but not low-rank 2D matrix
+        """
+
+        size = M.shape
+        self.error = []
+        # initialize S and Y (Lagrange multiplier)
+        S = np.zeros(size)
+        Y = np.zeros(size)
+
+        # if lamb and mu are not set, set with default values
+        if self.mu==None:
+            self.mu = np.prod(size)/4.0/np.sum(np.abs(M))
+        if self.lamb==None:
+            self.lamb = 1/np.sqrt(np.max(size))
+
+        # Alternating update
+        L = np.copy(initial_L)
+        for i in range(self.max_iter):
+            S = self.s_tau(M-L+1.0/self.mu*Y, self.lamb/self.mu)
+            L, rank = self.d_tau(M-S+1.0/self.mu*Y)
+
+            # Calculate residuals
+            residuals = M-L-S
+            residuals_sum = np.sum(np.abs(residuals))
+            self.error.append(residuals_sum)
+
+            # Check convergency
+            if residuals_sum <= self.tol:
+                break
+
+            Y = Y + self.mu*residuals
+            if self.verbose:
+                print("Finished iteration {} out of {}".format(i,self.max_iter))
+        # Check if the fit is converged
+        if residuals_sum > self.tol:
+            print('Not converged!')
+            print('Total error: %f, allowed tolerance: %f'%(residuals_sum, self.tol))
+            self.converged = False
+        else:
+            print('Converged!')
+            self.converged = True
+
+        self.L, self.S, self.rank = L, S, rank
+
+
+
     def get_low_rank(self):
         '''Return the low rank matrix
 
@@ -222,3 +280,10 @@ class RobustPCA:
             The rank of low rank matrix
         '''
         return self.rank
+
+    def get_error(self):
+        """
+        return the list of errors per iteration
+        """
+        return self.error
+
